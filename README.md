@@ -240,13 +240,19 @@ Himoya qoidalari:
 
 ## Joylashtirish
 
-**Docker** (dvigatellar oldindan yig'ilgan bo'lishi kerak):
+**Docker** — tayyor image Docker Hub'da: [`nbkabdulaxadov/ufile-worker`](https://hub.docker.com/r/nbkabdulaxadov/ufile-worker)
+(linux/amd64). Ichida dvigatellar yig'ilgan holda bor:
 
 ```sh
-scripts/build-engines.sh
-docker build -t ufile-worker .
-docker run -p 8080:8080 -v ufile-files:/data \
-  -e UFILE_FRAME_ANCESTORS="https://intranet.example.uz" ufile-worker
+docker run -d -p 8080:8080 -v ufile-files:/data \
+  -e UFILE_FRAME_ANCESTORS="https://intranet.example.uz" nbkabdulaxadov/ufile-worker
+```
+
+Saqlangan fayllar `/data` hajmida turadi. Image'ni o'zingiz yig'ib chiqarish (CI'siz, shu kompyuterda):
+
+```sh
+scripts/build-engines.sh          # dvigatellar (Rust + trunk)
+scripts/docker-publish.sh         # docker build + push: <package.json versiyasi> va latest
 ```
 
 **nginx** (statik, Node'siz): namunasi `deploy/nginx.conf`'da. `public/` papkasini istalgan statik
