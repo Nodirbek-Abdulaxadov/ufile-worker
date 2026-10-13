@@ -1,0 +1,8 @@
+# Built engines (scripts/build-engines.sh); everything but the folder itself.
+/public/engines/*
+!/public/engines/.gitkeep
+# Rust build caches of the engines.
+/engines/*/target/
+# The demo file store.
+/storage/
+node_modules/

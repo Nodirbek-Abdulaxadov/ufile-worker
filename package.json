@@ -1,0 +1,17 @@
+{
+  "name": "ufile-worker",
+  "version": "1.0.0",
+  "description": "Universal File Worker: view and edit PDF, Word, Excel and PowerPoint files in the browser, as a page or in an iframe",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/server.mjs",
+    "dev": "node server/server.mjs --port 8080",
+    "build:engines": "bash scripts/build-engines.sh",
+    "test:engines": "cd engines/gridcraft && cargo test -p gridcraft-engine --lib && cd ../wordcraft && cargo test -p wordcraft-engine --lib && cd ../deckcraft && cargo test -p deckcraft-engine --lib && cd ../pdfcraft && cargo test -p pdfcraft-engine --lib"
+  }
+}

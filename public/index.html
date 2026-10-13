@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>UFile — hujjatlarni ko'rish va tahrirlash</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/worker.css">
+  <script type="module" src="assets/worker.js"></script>
+</head>
+<body>
+  <div class="app" id="app" data-view="boot">
+    <header class="bar" id="bar">
+      <div class="bar__file">
+        <span class="badge" id="file-badge" aria-hidden="true"></span>
+        <div class="bar__titles">
+          <span class="bar__name" id="file-name"></span>
+          <span class="bar__status" id="file-status" aria-live="polite"></span>
+        </div>
+      </div>
+      <div class="bar__actions">
+        <div class="seg" id="mode-switch" role="radiogroup">
+          <button type="button" role="radio" data-mode="view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span data-i18n="mode.view"></span>
+          </button>
+          <button type="button" role="radio" data-mode="edit">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>
+            <span data-i18n="mode.edit"></span>
+          </button>
+        </div>
+        <span class="pill pill--readonly" id="readonly-pill" data-i18n="mode.readOnly"></span>
+        <button type="button" class="btn btn--primary" id="btn-save">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M7 3v6h8V3M7 21v-7h10v7"/></svg>
+          <span data-i18n="action.save"></span>
+        </button>
+        <button type="button" class="btn btn--icon" id="btn-download" data-i18n-title="action.download">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>
+        </button>
+        <button type="button" class="btn btn--icon" id="btn-fullscreen" data-i18n-title="action.fullscreen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        </button>
+        <button type="button" class="btn btn--icon" id="btn-close" data-i18n-title="action.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="stage" id="stage">
+      <section class="landing" id="landing">
+        <div class="landing__top">
+          <div class="brand">
+            <img src="assets/icon.svg" alt="" width="28" height="28">
+            <span>UFile</span>
+          </div>
+          <label class="lang">
+            <span class="sr-only" data-i18n="lang.label"></span>
+            <select id="lang-select"></select>
+          </label>
+        </div>
+
+        <div class="landing__body">
+          <h1 class="landing__title" data-i18n="app.tagline"></h1>
+
+          <div class="drop" id="drop" tabindex="0">
+            <div class="drop__icons" aria-hidden="true">
+              <span class="badge badge--lg" data-type="pdf">PDF</span>
+              <span class="badge badge--lg" data-type="word">DOC</span>
+              <span class="badge badge--lg" data-type="excel">XLS</span>
+              <span class="badge badge--lg" data-type="slides">PPT</span>
+            </div>
+            <p class="drop__title" data-i18n="landing.drop"></p>
+            <p class="drop__or" data-i18n="landing.or"></p>
+            <button type="button" class="btn btn--primary btn--lg" id="btn-choose" data-i18n="landing.choose"></button>
+            <input type="file" id="file-input" hidden>
+            <p class="drop__formats" data-i18n="landing.formats"></p>
+          </div>
+
+          <div class="landing__row">
+            <div class="field">
+              <span class="field__label" data-i18n="landing.openAs"></span>
+              <div class="seg seg--light" id="landing-mode" role="radiogroup">
+                <button type="button" role="radio" data-mode="view" data-i18n="mode.view"></button>
+                <button type="button" role="radio" data-mode="edit" data-i18n="mode.edit"></button>
+              </div>
+            </div>
+            <form class="field field--grow" id="url-form">
+              <label class="field__label" for="url-input" data-i18n="landing.url"></label>
+              <div class="inline">
+                <input type="url" id="url-input" required data-i18n-placeholder="landing.urlPlaceholder">
+                <button type="submit" class="btn" data-i18n="landing.open"></button>
+              </div>
+            </form>
+          </div>
+
+          <div class="create">
+            <span class="field__label" data-i18n="landing.new"></span>
+            <div class="create__list">
+              <button type="button" class="create__item" data-new="word"><span class="badge" data-type="word">DOC</span><span data-i18n="landing.newWord"></span></button>
+              <button type="button" class="create__item" data-new="excel"><span class="badge" data-type="excel">XLS</span><span data-i18n="landing.newExcel"></span></button>
+              <button type="button" class="create__item" data-new="slides"><span class="badge" data-type="slides">PPT</span><span data-i18n="landing.newSlides"></span></button>
+            </div>
+          </div>
+
+          <p class="landing__note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            <span data-i18n="landing.privacy"></span>
+          </p>
+        </div>
+      </section>
+
+      <section class="waiting" id="waiting">
+        <div class="spinner" aria-hidden="true"></div>
+        <p data-i18n="landing.waiting"></p>
+      </section>
+
+      <div class="engine" id="engine-host"></div>
+
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay__card">
+          <div class="spinner" id="overlay-spinner" aria-hidden="true"></div>
+          <div class="overlay__error-icon" id="overlay-error-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5m0 3.2v.1"/></svg>
+          </div>
+          <p class="overlay__title" id="overlay-title"></p>
+          <div class="progress" id="overlay-progress" hidden><div class="progress__bar" id="overlay-progress-bar"></div></div>
+          <p class="overlay__text" id="overlay-text"></p>
+          <pre class="overlay__detail" id="overlay-detail" hidden></pre>
+          <div class="overlay__actions" id="overlay-actions" hidden>
+            <button type="button" class="btn btn--primary" id="btn-retry" data-i18n="action.retry"></button>
+            <button type="button" class="btn" id="btn-error-close" data-i18n="action.close"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="dropmask" id="dropmask" hidden>
+        <p data-i18n="landing.drop"></p>
+      </div>
+    </main>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <dialog class="dialog" id="confirm">
+      <form method="dialog">
+        <h2 class="dialog__title" id="confirm-title"></h2>
+        <p class="dialog__text" id="confirm-text"></p>
+        <div class="dialog__actions">
+          <button type="submit" class="btn" value="cancel" data-i18n="action.cancel"></button>
+          <button type="submit" class="btn" value="discard" id="confirm-discard" data-i18n="action.discard"></button>
+          <button type="submit" class="btn btn--primary" value="save" id="confirm-save" data-i18n="action.saveAndSwitch"></button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+</body>
+</html>

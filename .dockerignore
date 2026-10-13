@@ -1,0 +1,6 @@
+# The image needs only server/ and public/ (with the engines already built into public/engines/).
+engines/
+storage/
+scripts/
+deploy/
+node_modules/

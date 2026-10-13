@@ -1,0 +1,10 @@
+{
+  "allowedParentOrigins": ["*"],
+  "allowedFileOrigins": ["*"],
+  "allowedSaveOrigins": ["self"],
+  "defaultMode": "edit",
+  "defaultLanguage": "uz",
+  "allowEdit": true,
+  "author": "",
+  "maxFileMB": 300
+}
