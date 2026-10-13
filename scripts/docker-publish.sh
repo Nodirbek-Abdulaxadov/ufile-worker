@@ -23,3 +23,5 @@ docker build -t "$IMAGE:$VERSION" -t "$IMAGE:latest" "$ROOT"
 docker push "$IMAGE:$VERSION"
 docker push "$IMAGE:latest"
 echo "pushed $IMAGE:$VERSION and $IMAGE:latest"
+# The Docker Hub page (docker/README.md, docker/hub.json): a failure here leaves the image pushed.
+node "$ROOT/scripts/dockerhub-meta.mjs" || echo "warning: the Docker Hub page was not updated" >&2

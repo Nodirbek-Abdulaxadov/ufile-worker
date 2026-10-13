@@ -3,4 +3,5 @@ engines/
 storage/
 scripts/
 deploy/
+docker/
 node_modules/

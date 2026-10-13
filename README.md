@@ -6,6 +6,14 @@ Alohida sahifa sifatida ham, boshqa sayt ichida `<iframe>` sifatida ham ishlaydi
 Fayllar foydalanuvchining brauzerida (WebAssembly) ochiladi va tahrirlanadi. Siz `saveUrl`
 bermaguningizcha hech narsa serverga yuborilmaydi.
 
+[![Docker Hub](https://img.shields.io/docker/v/nbkabdulaxadov/ufile-worker?sort=semver&label=Docker%20Hub)](https://hub.docker.com/r/nbkabdulaxadov/ufile-worker)
+[![Image size](https://img.shields.io/docker/image-size/nbkabdulaxadov/ufile-worker?sort=semver)](https://hub.docker.com/r/nbkabdulaxadov/ufile-worker)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+```sh
+docker run -d -p 8080:8080 -v ufile-files:/data nbkabdulaxadov/ufile-worker
+```
+
 | Tur | Kengaytmalar | Dvigatel (`engines/`) | Yuklanish hajmi (brotli) |
 |---|---|---|---|
 | PDF | `.pdf` | PdfCraft | ~9 MB |
@@ -35,6 +43,20 @@ Dvigatel birinchi ochilganda yuklab olinadi. Keyin brauzer keshidan bir zumda oc
   "faqat o'qish" rejimi qo'shilgan (`engines/README.md`).
 
 ## Tez boshlash
+
+### Docker bilan (eng oson)
+
+Tayyor image Docker Hub'da: [`nbkabdulaxadov/ufile-worker`](https://hub.docker.com/r/nbkabdulaxadov/ufile-worker).
+Ichida to'rttala dvigatel yig'ilgan holda bor, Rust kerak emas:
+
+```sh
+docker run -d --name ufile -p 8080:8080 -v ufile-files:/data nbkabdulaxadov/ufile-worker
+```
+
+Port `8080`, saqlangan fayllar `/data` hajmida. Sozlamalar (`UFILE_FRAME_ANCESTORS`, `config.json`
+va boshqalar) pastda, *Joylashtirish* bo'limida.
+
+### Manbadan
 
 ```sh
 # 1) Dvigatellarni yig'ish (bir marta; Rust 1.95+ kerak, ~10 daqiqa)
@@ -252,7 +274,19 @@ Saqlangan fayllar `/data` hajmida turadi. Image'ni o'zingiz yig'ib chiqarish (CI
 
 ```sh
 scripts/build-engines.sh          # dvigatellar (Rust + trunk)
-scripts/docker-publish.sh         # docker build + push: <package.json versiyasi> va latest
+scripts/docker-publish.sh         # docker build + push: <package.json versiyasi> va latest,
+                                  # keyin Docker Hub sahifasini yangilaydi
+```
+
+Docker Hub sahifasidagi matn `docker/README.md`'da, qisqa tavsif va kategoriyalar
+`docker/hub.json`'da. Ularni o'zgartirgandan keyin `node scripts/dockerhub-meta.mjs` sahifani
+yangilaydi (`docker login` qilingan akkaunt bilan).
+
+Image'ga `config.json`'ni o'zingiznikiga almashtirish:
+
+```sh
+docker run -d -p 8080:8080 -v ufile-files:/data \
+  -v ./config.json:/app/public/config.json:ro nbkabdulaxadov/ufile-worker
 ```
 
 **nginx** (statik, Node'siz): namunasi `deploy/nginx.conf`'da. `public/` papkasini istalgan statik
@@ -309,6 +343,7 @@ ufile-worker/
 ├── engines/                dvigatellar manbasi (Rust): pdfcraft, wordcraft, gridcraft, deckcraft, craft-libs
 ├── server/server.mjs       Node server + /api/files
 ├── scripts/                build-engines.sh, precompress.mjs
+├── docker/                 Docker Hub sahifasi: README.md (overview), hub.json (tavsif, kategoriyalar)
 ├── deploy/nginx.conf       nginx namunasi
 └── Dockerfile
 ```
