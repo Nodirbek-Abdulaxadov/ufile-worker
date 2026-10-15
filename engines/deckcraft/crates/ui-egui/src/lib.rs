@@ -214,6 +214,8 @@ pub struct SlideApp {
     styled: bool,
     restyle: bool,
     fonts_ready: bool,
+    /// The font database's [`deckcraft_fonts::FontDb::generation`] the slides were drawn at.
+    font_generation: u64,
     last_time: f64,
     /// When AutoRecover data was last written (seconds, egui time).
     pub last_recovery: f64,
@@ -259,6 +261,7 @@ impl SlideApp {
             styled: false,
             restyle: true,
             fonts_ready: false,
+            font_generation: 0,
             last_time: 0.0,
             last_recovery: 0.0,
             quit_confirmed: false,
@@ -738,6 +741,13 @@ impl SlideApp {
         self.drain_control(ctx);
         if self.fonts_ready {
             self.drain_inbox();
+        }
+        // Fonts arrived (the host's font pack): draw the slides again with them.
+        let generation = deckcraft_fonts::FontDb::global().generation();
+        if generation != self.font_generation {
+            self.font_generation = generation;
+            self.textures.invalidate();
+            ctx.request_repaint();
         }
         if !self.synthetic.is_empty() {
             ctx.request_repaint();

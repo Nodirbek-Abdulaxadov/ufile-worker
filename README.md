@@ -64,7 +64,10 @@ rustup target add wasm32-unknown-unknown
 cargo install trunk --locked
 scripts/build-engines.sh                 # yoki faqat kerakligini: scripts/build-engines.sh word excel
 
-# 2) Serverni ishga tushirish (Node 18+, qo'shimcha paketsiz)
+# 2) Shriftlar to'plami (Arial, Times New Roman, Calibri... o'rnini bosuvchilar; pastda: Shriftlar)
+scripts/fetch-fonts.sh
+
+# 3) Serverni ishga tushirish (Node 18+, qo'shimcha paketsiz)
 node server/server.mjs                   # http://127.0.0.1:8080/
 ```
 
@@ -320,9 +323,36 @@ asl loyihaning yangi versiyasiga qanday o'tish — `engines/README.md`'da.
 | hammasi (`crates/engine`) | **Faqat o'qish** sessiyasi: `Session::read_only` (PdfCraft'da `Session::set_view_only`). Hujjatni o'zgartiradigan har bir buyruq va undo/redo rad etiladi. DeckCraft'da sichqoncha bilan sudrash ham bloklanadi. Har biri testlar bilan, va testlar himoyasiz holatda yiqilishi tekshirilgan. |
 | hammasi (`apps/*-web`) | `?mode=view` parametri va iframe ko'prigi xabarlari: `<prefix>:mode` — rejimni joyida almashtirish, `<prefix>:opened` — hujjat ochildi, `ready` ichida `modes`. |
 | GridCraft (`crates/ui-egui`) | Ko'rish rejimida katak muharriri ochilmaydi (`begin_edit`), shu bilan rad etiladigan tahrir xato oynasini ham chiqarmaydi. Test: `tests/view_only.rs`. Ctrl + / Ctrl − zoom qiladi (`keymap.rs`), ko'rish rejimida ham. Test: `tests/keyboard_shortcuts.rs`. |
+| WordCraft, GridCraft, DeckCraft (shriftlar) | **Shriftlar to'plami**: `fonts.json`dagi oilalar ro'yxatga qo'shiladi va birinchi so'ralganda yuklanadi. Shrift o'z nomi bilan emas, Office nomi bilan qo'shiladi (masalan Carlito → Calibri). Kod: `crates/fonts/src/fontdb/pack.rs` (WordCraft, DeckCraft), `crates/ui-egui/src/fonts.rs` (GridCraft), `apps/*-web/src/web/font_pack.rs`. |
 | WordCraft, DeckCraft (`apps/*-web/src/host.rs`) | Yangi iframe ko'prigi (`?host=parent`): `ready`, `open`, `opened`, `save`, `dirty`, `failed`, `mode`. PdfCraft va GridCraft'da bu ko'prik avvaldan bor edi. DeckCraft o'z formatida saqlaganini UFile `.pptx`'ga qaytarib aylantiradi. |
 
 Testlar: `npm run test:engines` (Rust kerak).
+
+## Shriftlar
+
+Brauzer sahifasi kompyuterga o'rnatilgan shriftlarni o'qiy olmaydi. Shuning uchun UFile Office'ning
+asosiy shriftlari o'rniga ochiq litsenziyali, **metrikasi bir xil** shriftlarni beradi: har bir harf
+kengligi asl shriftnikidek, matn qatorlarga va sahifalarga Word / Excel / PowerPoint'dagidek bo'linadi.
+
+| Ro'yxatdagi nom | Aslida chiziladigan shrift | Litsenziya |
+|---|---|---|
+| Arial | Liberation Sans 2.1.5 | OFL-1.1 |
+| Times New Roman | Liberation Serif 2.1.5 | OFL-1.1 |
+| Courier New | Liberation Mono 2.1.5 | OFL-1.1 |
+| Calibri | Carlito | OFL-1.1 |
+| Cambria | Caladea | OFL-1.1 |
+
+- Word, Excel va PowerPoint'ning shrift ro'yxatida shu nomlar chiqadi. Hujjatga ham shu nom yoziladi,
+  shuning uchun Office'da ochilganda asl Arial / Calibri bilan ko'rinadi.
+- Shriftlar **kerak bo'lgandagina** yuklanadi: hujjat yoki tanlangan shrift so'raganda, shu oilaning
+  4 ta fayli (oddiy, qalin, kursiv, qalin kursiv). Brauzer ularni bir marta yuklab, keshda saqlaydi.
+- Ro'yxatda yo'q shriftlar (Aptos, Verdana, Segoe UI va boshqalar) eng yaqin shrift bilan chiziladi:
+  masalan Aptos uchun Calibri ishlatiladi.
+- Fayllar asl manbadan, o'zgartirilmagan holda olinadi: `scripts/fetch-fonts.sh` ularni SHA-256 bo'yicha
+  tekshiradi va `public/fonts/` ga joylaydi. Ro'yxat `public/fonts/fonts.json` faylida.
+  Dvigatellar uni `../../fonts/fonts.json` manzilidan o'qiydi; fayl bo'lmasa, avvalgidek ishlaydi.
+- Kirill harflari (o'zbek kirilida ҳ қ ғ ў ham) va o'zbek lotinidagi `oʻ gʻ` Liberation va Carlito'da
+  bor. Caladea'da (Cambria) kirill yo'q: bunday harflar boshqa shrift bilan chiziladi.
 
 ## Cheklovlar
 
@@ -334,7 +364,8 @@ Testlar: `npm run test:engines` (Rust kerak).
   boshqaruv cheklangan.
 - Brauzer WebGPU yoki WebGL2'ni qo'llashi kerak: Chrome / Edge, Firefox, Safari 17+.
   Videokartasiz muhitda (virtual mashina, RDP) UFile o'zi WebGL2'ni tanlaydi.
-- Hujjat ichidagi shriftlar brauzerda yo'q bo'lsa, o'xshash shrift bilan ko'rsatiladi.
+- Brauzer kompyuterdagi shriftlarni ko'rmaydi. Faqat *Shriftlar* bo'limidagilar va dvigatellarning
+  o'z shriftlari bor; qolganlari o'xshash shrift bilan ko'rsatiladi.
 
 ## Fayllar
 
@@ -346,10 +377,11 @@ ufile-worker/
 │   ├── config.json         xavfsizlik va standart sozlamalar
 │   ├── assets/             worker.js, engines.js, i18n.js, worker.css, icon.svg, templates/
 │   ├── sdk/ufile.js        saytlar uchun SDK
-│   └── engines/            yig'ilgan dvigatellar (scripts/build-engines.sh)
+│   ├── engines/            yig'ilgan dvigatellar (scripts/build-engines.sh)
+│   └── fonts/              shriftlar to'plami (scripts/fetch-fonts.sh)
 ├── engines/                dvigatellar manbasi (Rust): pdfcraft, wordcraft, gridcraft, deckcraft, craft-libs
 ├── server/server.mjs       Node server + /api/files
-├── scripts/                build-engines.sh, precompress.mjs
+├── scripts/                build-engines.sh, fetch-fonts.sh, precompress.mjs, docker-publish.sh
 ├── docker/                 Docker Hub sahifasi: README.md (overview), hub.json (tavsif, kategoriyalar)
 ├── deploy/nginx.conf       nginx namunasi
 └── Dockerfile
@@ -374,3 +406,6 @@ UFile — [MIT](LICENSE).
 Dvigatellar (`engines/`) MIT / Apache-2.0 litsenziyasi ostida. Har birining `LICENSE-MIT`, `LICENSE-APACHE`,
 `NOTICE` va `ATTRIBUTION.md` fayllari `engines/<nom>/` ichida saqlangan. `scripts/build-engines.sh`
 ularni yig'ilgan dvigatel yoniga ham ko'chiradi (`public/engines/<id>/`).
+
+Shriftlar to'plami (`public/fonts/`) SIL Open Font License 1.1 ostida. Litsenziya matni har bir shrift
+papkasida: `liberation-2.1.5/LICENSE.txt`, `carlito-*/OFL.txt`, `caladea-*/OFL.txt`.

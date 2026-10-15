@@ -4,8 +4,9 @@
 #   scripts/docker-publish.sh                              # <version> and latest
 #   IMAGE=someone/ufile-worker scripts/docker-publish.sh   # another repository
 #
-# Needs `docker login`, and the engines built into public/engines/ (scripts/build-engines.sh):
-# the image takes them as they are. The version is package.json's.
+# Needs `docker login`, the engines built into public/engines/ (scripts/build-engines.sh) and the
+# font pack in public/fonts/ (scripts/fetch-fonts.sh): the image takes them as they are. The
+# version is package.json's.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,6 +19,7 @@ die() { echo "error: $*" >&2; exit 1; }
 for id in pdf word excel slides; do
   [ -f "$ROOT/public/engines/$id/index.html" ] || die "the $id engine isn't built (scripts/build-engines.sh $id)"
 done
+[ -f "$ROOT/public/fonts/fonts.json" ] || die "the font pack is missing (scripts/fetch-fonts.sh)"
 
 docker build -t "$IMAGE:$VERSION" -t "$IMAGE:latest" "$ROOT"
 docker push "$IMAGE:$VERSION"

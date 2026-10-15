@@ -11,6 +11,7 @@ use wordcraft_ui_egui::{Inbox, Services, WordApp};
 const DOC_EXTS: &[&str] = &["docx", "docm", "dotx", "dotm", "doc", "dot", "odt", "rtf", "txt", "md", "html", "htm", "tex", "json", "xml"];
 const IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "bmp", "wmf", "emf"];
 const RECIPIENT_EXTS: &[&str] = &["csv", "tsv", "txt", "xlsx", "xlsm", "ods"];
+mod font_pack;
 mod font_store;
 const CANVAS_ID: &str = "wordcraft_canvas";
 const LOADING_ID: &str = "wordcraft_loading";
@@ -57,6 +58,8 @@ pub fn start() {
                     }
                     // Fonts the user added on an earlier visit (#582); the app notices them arrive.
                     font_store::load_all(cc.egui_ctx.clone());
+                    // The host's Office font stand-ins, fetched as documents ask for them.
+                    font_pack::start(cc.egui_ctx.clone());
                     let inbox: Inbox = Inbox::default();
                     if let Err(e) = listen_for_pasted_pictures(inbox.clone(), cc.egui_ctx.clone()) {
                         log::error!("pasting pictures is unavailable: {e}");

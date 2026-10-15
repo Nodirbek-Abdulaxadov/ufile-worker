@@ -1,5 +1,7 @@
-# UFile worker: the site (with the engines already built into public/engines/) and its server.
+# UFile worker: the site (with the engines already built into public/engines/ and the font pack
+# in public/fonts/) and its server.
 #   scripts/build-engines.sh          # on the build machine: Rust + trunk
+#   scripts/fetch-fonts.sh
 #   docker build -t ufile-worker .
 #   docker run -p 8080:8080 -v ufile-files:/data ufile-worker
 FROM node:24-alpine

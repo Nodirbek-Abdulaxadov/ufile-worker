@@ -237,6 +237,8 @@ pub struct SheetApp {
     /// The (doc uid, revision) `fonts_bound` was computed for, so the style table is walked only
     /// when the workbook changes.
     fonts_seen: (u64, u64),
+    /// The [`fonts::generation`] `fonts_bound` was bound at: font-pack faces arriving bind again.
+    fonts_gen: u64,
     /// Set while a font-set change is pending activation: skip this frame's paint, like the
     /// startup `fonts_ready` gate (egui applies new definitions at the next pass).
     fonts_rebind: bool,
@@ -294,6 +296,7 @@ impl SheetApp {
             fonts_set: false,
             fonts_bound: Vec::new(),
             fonts_seen: (0, 0),
+            fonts_gen: 0,
             fonts_rebind: false,
             fonts_han: None,
             effective_dark: false,
@@ -1022,12 +1025,14 @@ impl SheetApp {
             // fonts re-applies the font set, which egui activates at the next pass, so skip this
             // frame's paint (same one-frame cost as startup). Only when the workbook changed.
             let seen = self.session.active().map(|d| (d.uid, d.revision)).unwrap_or((0, 0));
-            if seen != self.fonts_seen {
+            let generation = fonts::generation();
+            if seen != self.fonts_seen || generation != self.fonts_gen {
                 let used = self.used_fonts();
                 self.fonts_seen = seen;
-                if used != self.fonts_bound {
+                if used != self.fonts_bound || generation != self.fonts_gen {
                     ctx.set_fonts(theme::font_definitions_with(self.ui.language, &used));
                     self.fonts_bound = used;
+                    self.fonts_gen = generation;
                     self.fonts_rebind = true;
                     ctx.request_repaint();
                 }

@@ -1,12 +1,13 @@
-// Precompress an engine's files (.wasm, .js, .css, .html, .json, .svg) next to them as .br and
-// .gz, so the server can send them compressed without compressing on every request.
+// Precompress an engine's files (.wasm, .js, .css, .html, .json, .svg) or the font pack's
+// (.ttf, .otf) next to them as .br and .gz, so the server can send them compressed without
+// compressing on every request.
 //
 //   node scripts/precompress.mjs public/engines/word
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
 
-const COMPRESSIBLE = new Set(['.wasm', '.js', '.mjs', '.css', '.html', '.json', '.svg']);
+const COMPRESSIBLE = new Set(['.wasm', '.js', '.mjs', '.css', '.html', '.json', '.svg', '.ttf', '.otf']);
 const MIN_BYTES = 1024;
 
 function* files(dir) {

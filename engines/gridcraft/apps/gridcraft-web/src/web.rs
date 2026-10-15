@@ -5,6 +5,8 @@ use gridcraft_ui_egui::{Inbox, Services, SheetApp};
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::JsValue;
 
+mod font_pack;
+
 const CANVAS_ID: &str = "gridcraft_canvas";
 const LOADING_ID: &str = "gridcraft_loading";
 
@@ -64,6 +66,10 @@ pub fn start() {
                         app.ui.language = browser;
                     }
                     SheetApp::setup_context_for_language(&cc.egui_ctx, false, app.ui.language);
+                    // No installed fonts here: the host's Office font stand-ins, fetched as
+                    // workbooks use them.
+                    gridcraft_ui_egui::fonts::start_scan();
+                    font_pack::start(cc.egui_ctx.clone());
                     if let Some(bridge) = &app_bridge {
                         if let Some(author) = query_param("author") {
                             crate::host::Bridge::set_author(&mut app, &author);

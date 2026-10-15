@@ -44,6 +44,20 @@ yig'ilgan dvigatel yoniga ham ko'chiradi.
     chizg'ichlar yo'q.
 - **GridCraft'da Ctrl + / Ctrl − zoom qiladi.** Kataklarni qo'shish/o'chirish lenta va o'ng tugma
   menyusida qoladi.
+- **Shriftlar to'plami** (WordCraft, GridCraft, DeckCraft). Brauzer kompyuterdagi shriftlarni
+  ko'rmaydi, shuning uchun UFile `public/fonts/fonts.json` dagi oilalarni beradi (Arial, Times New
+  Roman, Courier New, Calibri, Cambria — `scripts/fetch-fonts.sh`).
+  - `apps/*-web/src/web/font_pack.rs`: ro'yxatni `../../fonts/fonts.json` dan o'qiydi va oilani
+    birinchi so'ralganda yuklaydi.
+  - WordCraft, DeckCraft — `crates/fonts/src/fontdb/pack.rs`: `offer_families`, `want`,
+    `add_pack_font`. Shriftlar ro'yxatda turadi, shrift Office nomi bilan qo'shiladi (Carlito →
+    Calibri), keyin `generation` o'zgaradi va hujjat qayta chiziladi. Yo'q shrift o'rniga
+    qo'yiladigan shriftlar ro'yxatida ham Office nomlari bor.
+  - GridCraft — `crates/ui-egui/src/fonts.rs`: xuddi shunday, qo'shimcha `stand_in` (yo'q shrift
+    o'rniga, masalan Aptos Narrow → Calibri) va `pack_fallback` (interfeys shriftida yo'q
+    belgilar uchun, masalan o'zbekcha `ʻ`).
+  - DeckCraft: tema shriftlari bir xil bo'lsa ham menyuda ikkalasi turadi ("(Body)" belgisi
+    boshqa shriftga tushib qolmaydi).
 
 ## Testlar
 

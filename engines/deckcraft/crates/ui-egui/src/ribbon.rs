@@ -399,6 +399,8 @@ fn slides_group(app: &mut SlideApp, ui: &mut Ui) {
     });
 }
 
+/// The font menu's entries: the theme's heading and body fonts (both, even when they are the same
+/// font, as the menu labels the first two), then every available family.
 pub fn font_families(app: &SlideApp) -> Vec<String> {
     let mut v = vec![];
     if let Some(m) = app.session.active().and_then(|d| d.doc.masters.first()) {
@@ -406,7 +408,6 @@ pub fn font_families(app: &SlideApp) -> Vec<String> {
         v.push(m.theme.fonts.minor.latin.clone());
     }
     v.extend(deckcraft_fonts::FontDb::global().families());
-    v.dedup();
     v
 }
 

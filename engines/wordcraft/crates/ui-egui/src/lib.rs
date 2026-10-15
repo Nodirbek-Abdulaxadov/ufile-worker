@@ -761,7 +761,8 @@ impl WordApp {
         }
         self.font_generation = generation;
         self.session.relayout();
-        self.previews.fonts_changed(ctx, db.user_fonts().iter().flat_map(|f| f.families()));
+        // Font-pack families draw their menu entries in a stand-in until they arrive.
+        self.previews.fonts_changed(ctx, db.user_fonts().iter().flat_map(|f| f.families()).chain(db.offered_families()));
         ctx.request_repaint();
     }
 

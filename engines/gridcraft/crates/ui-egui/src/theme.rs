@@ -161,13 +161,18 @@ pub fn ui_bold(size: f32) -> FontId {
 /// The font family to use for a cell font name and weight.
 ///
 /// When the name is an installed font whose faces were bound by [`font_definitions`], that family
-/// is used; otherwise the name is bucketed to one of the built-in roles (mono/serif/cell). egui
-/// panics on a family that was never bound, so the installed branch is gated on
-/// [`crate::fonts::is_bound`] and never names a family egui hasn't been given.
+/// is used; then the font pack's stand-in for it ([`crate::fonts::stand_in`]) when that is bound;
+/// otherwise the name is bucketed to one of the built-in roles (mono/serif/cell). egui panics on a
+/// family that was never bound, so the installed branches are gated on
+/// [`crate::fonts::is_bound`] and never name a family egui hasn't been given.
 pub fn cell_family(name: &str, bold: bool, italic: bool) -> FontFamily {
     let role = crate::fonts::role_key(name, bold, italic);
     if crate::fonts::is_bound(&role) {
         return FontFamily::Name(role.into());
+    }
+    let stand_in = crate::fonts::role_key(crate::fonts::stand_in(name), bold, italic);
+    if crate::fonts::is_bound(&stand_in) {
+        return FontFamily::Name(stand_in.into());
     }
     let lower = name.to_ascii_lowercase();
     if lower.contains("courier") || lower.contains("mono") || lower.contains("consolas") {
@@ -416,6 +421,17 @@ pub fn font_definitions_with(language: crate::i18n::Language, used: &[String]) -
     for family in crate::fonts::installed_among(used) {
         bound.extend(crate::fonts::bind_family(&mut fonts, &family));
     }
+    // A font-pack font lacking a character (Caladea has no Cyrillic) borrows it from the others.
+    let pack_fallback: Vec<&String> = fallback.iter().filter(|k| k.starts_with(crate::fonts::PACK_FALLBACK)).collect();
+    for key in bound.iter().filter(|k| k.starts_with("fnt:")) {
+        if let Some(chain) = fonts.families.get_mut(&FontFamily::Name(key.as_str().into())) {
+            for k in &pack_fallback {
+                if !chain.contains(k) {
+                    chain.push((*k).clone());
+                }
+            }
+        }
+    }
     // Interface text (formula bar, name box, dialogs) falls back to the cell font before the
     // script faces: whatever a cell can draw, the formula bar can draw too, even where no script
     // fallback face was found (#349: macOS UI font without Hebrew, cells in Arial with it).
@@ -469,9 +485,10 @@ fn load_fallback(fonts: &mut FontDefinitions, han: HanOrder) -> Vec<String> {
     keys
 }
 
+/// The web build has no system fonts: the font pack's faces are the fallback.
 #[cfg(target_arch = "wasm32")]
-fn load_fallback(_fonts: &mut FontDefinitions, _han: HanOrder) -> Vec<String> {
-    Vec::new()
+fn load_fallback(fonts: &mut FontDefinitions, _han: HanOrder) -> Vec<String> {
+    crate::fonts::pack_fallback(fonts)
 }
 
 /// Every fallback face we look for, in chain order: `(key, candidate files)`. One file per script

@@ -12,6 +12,7 @@ use skrifa::raw::FileRef;
 use skrifa::string::StringId;
 use skrifa::{GlyphId, MetadataProvider};
 
+mod pack;
 mod user;
 pub use user::{FONT_FILE_EXTS, FontFormat, Installed, MAX_FONT_FILE_BYTES, UserFont, UserFontError, decode_font_file, is_font_file_name, sniff};
 
@@ -310,7 +311,10 @@ pub struct FontDb {
     catalog: RwLock<Vec<CatalogEntry>>,
     /// Fonts the user added at run time, and the folder they are stored in (#582).
     user: RwLock<user::UserFonts>,
-    /// Bumped whenever user fonts are added or removed ([`FontDb::generation`]).
+    /// Families the host serves on demand (UFile's font pack).
+    pack: RwLock<pack::Pack>,
+    /// Bumped whenever user fonts are added or removed, or font-pack faces arrive
+    /// ([`FontDb::generation`]).
     generation: AtomicU64,
     /// The folders the system font scan reads (the platform's font folders for [`FontDb::global`]).
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -888,6 +892,7 @@ impl FontDb {
             #[cfg(not(target_arch = "wasm32"))]
             catalog: RwLock::new(Vec::new()),
             user: RwLock::new(user::UserFonts::default()),
+            pack: RwLock::new(pack::Pack::default()),
             generation: AtomicU64::new(0),
             font_dirs,
             #[cfg(not(target_arch = "wasm32"))]
@@ -938,11 +943,12 @@ impl FontDb {
         self.catalog.read().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Family names available (loaded plus cataloged system fonts), sorted and deduplicated. Like
-    /// Word's font list, this holds each face's legacy family name too ("Roboto Light", "Inter
-    /// SemiBold"), which [`FontDb::face`] resolves to that face.
+    /// Family names available (loaded, cataloged system fonts and the families offered on demand),
+    /// sorted and deduplicated. Like Word's font list, this holds each face's legacy family name
+    /// too ("Roboto Light", "Inter SemiBold"), which [`FontDb::face`] resolves to that face.
     pub fn families(&self) -> Vec<String> {
         let mut v: Vec<String> = self.read_faces().iter().flat_map(|f| [f.family.clone(), f.legacy_family.clone()]).collect();
+        v.extend(self.offered_families());
         #[cfg(not(target_arch = "wasm32"))]
         v.extend(self.read_catalog().iter().flat_map(|c| [c.family.clone(), c.legacy.clone()]));
         v.sort_by_key(|a| a.to_lowercase());

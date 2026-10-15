@@ -93,7 +93,7 @@ const STORED_TYPES = {
   txt: 'text/plain; charset=utf-8',
 };
 
-const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg', '.wasm', '.txt', '.md']);
+const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg', '.wasm', '.txt', '.md', '.ttf', '.otf']);
 const gzipCache = new Map();
 
 function securityHeaders(res, html) {
@@ -123,6 +123,8 @@ function cacheControl(path) {
   const rel = path.slice(ROOT.length).split(sep).join('/');
   // Trunk names the engines' files after their content: they never change.
   if (/^\/engines\/[^/]+\/.+-[0-9a-f]{8,}[^/]*\.(js|wasm|css)$/.test(rel)) return 'public, max-age=31536000, immutable';
+  // The font pack keeps each font release in a folder named after it (scripts/fetch-fonts.sh).
+  if (/^\/fonts\/[^/]+\/[^/]+\.(ttf|otf)$/.test(rel)) return 'public, max-age=31536000, immutable';
   return 'no-cache';
 }
 

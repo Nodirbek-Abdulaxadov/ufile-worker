@@ -108,14 +108,19 @@ your own backend, or start the container with `-e UFILE_STORAGE=off`.
 ## Details
 
 - **Port** `8080`, **volume** `/data`; the server runs as the unprivileged `node` user.
-- **Tags:** `latest` and versions (`1.0.0`); platform `linux/amd64`.
+- **Tags:** `latest` and versions (`1.2.0`); platform `linux/amd64`.
 - **HTTPS:** serve it over HTTPS in production. WebGPU and the clipboard need a secure context;
   without them the engines fall back to WebGL2.
 - **Downloads:** browsers fetch each engine once (4.6–9 MB compressed) and then load it from cache.
+- **Fonts:** a browser page can't use the fonts installed on the computer, so UFile serves open fonts
+  with the same metrics under the Office names: Arial, Times New Roman and Courier New (Liberation),
+  Calibri (Carlito) and Cambria (Caladea). Each family is fetched the first time a document uses it.
 
 ## Source and licence
 
 - Source: https://github.com/Nodirbek-Abdulaxadov/ufile-worker. UFile is MIT licensed.
+- The fonts in `/app/public/fonts` are under the SIL Open Font License 1.1 (licence files next to
+  them).
 - The document engines are based on the open-source projects of the
   [ArtCraft](https://getartcraft.com) team: PdfCraft, WordCraft, GridCraft and DeckCraft
   (MIT OR Apache-2.0).

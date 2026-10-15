@@ -2,7 +2,7 @@
 //! time a lookup needs them, native only), outline cache.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use kurbo::BezPath;
@@ -11,6 +11,8 @@ use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::raw::FileRef;
 use skrifa::string::StringId;
 use skrifa::{GlyphId, MetadataProvider};
+
+mod pack;
 
 /// The family used when a requested family is unknown and has no substitute.
 pub const FALLBACK_FAMILY: &str = "Inter";
@@ -28,24 +30,29 @@ pub fn bundled() -> Vec<&'static [u8]> {
 }
 
 /// Open substitutes for families documents often ask for but we can't ship (metric-compatible
-/// where one exists), tried in order after the family itself.
+/// where one exists), tried in order after the family itself. Each open font is followed by the
+/// Office name the host's font pack serves it under (Carlito as Calibri…).
 pub fn substitutes(family: &str) -> &'static [&'static str] {
     match family.to_ascii_lowercase().as_str() {
-        "calibri" | "calibri light" => &["Carlito", "Liberation Sans", "Arial", "Inter"],
-        "cambria" | "cambria math" => &["Caladea", "Liberation Serif", "Times New Roman", "Merriweather"],
+        "calibri" | "calibri light" => &["Carlito", "Calibri", "Liberation Sans", "Arial", "Inter"],
+        "cambria" | "cambria math" => &["Caladea", "Cambria", "Liberation Serif", "Times New Roman", "Merriweather"],
         "arial" | "helvetica" | "helvetica neue" | "arial nova" => &["Liberation Sans", "Arial", "Helvetica Neue", "Helvetica", "Inter"],
         "times new roman" | "times" => &["Liberation Serif", "Times New Roman", "Times", "Merriweather"],
         "courier new" | "courier" | "consolas" | "menlo" => &["Liberation Mono", "Courier New", "Menlo", "Courier"],
         "aptos" | "aptos display" | "aptos narrow" | "segoe ui" | "segoe ui light" | "segoe ui semibold" | "tahoma" | "verdana" => {
             &["Inter", "Helvetica Neue", "Arial", "Liberation Sans"]
         }
-        "georgia" | "garamond" | "book antiqua" | "palatino" | "palatino linotype" | "constantia" => &["Merriweather", "Liberation Serif", "Georgia"],
+        "georgia" | "garamond" | "book antiqua" | "palatino" | "palatino linotype" | "constantia" => {
+            &["Merriweather", "Liberation Serif", "Times New Roman", "Georgia"]
+        }
         "century gothic" | "avenir" | "avenir next" | "futura" | "gill sans" | "gill sans mt" | "trebuchet ms" | "corbel" | "candara" => {
             &["Montserrat", "Poppins", "Avenir Next", "Inter"]
         }
         "franklin gothic" | "franklin gothic book" | "franklin gothic medium" | "univers" => &["Open Sans", "Inter"],
         "open sans" | "lato" | "roboto" | "montserrat" | "poppins" | "nunito sans" => &["Inter"],
-        "playfair display" | "merriweather" | "source serif 4" | "source serif pro" => &["Merriweather", "Liberation Serif", "Georgia"],
+        "playfair display" | "merriweather" | "source serif 4" | "source serif pro" => {
+            &["Merriweather", "Liberation Serif", "Times New Roman", "Georgia"]
+        }
         "source sans 3" | "source sans pro" => &["Open Sans", "Inter"],
         "impact" | "arial black" => &["Montserrat", "Inter"],
         _ => &[],
@@ -295,6 +302,10 @@ struct CatalogEntry {
 pub struct FontDb {
     faces: RwLock<Vec<Arc<FontFace>>>,
     outlines: Mutex<HashMap<(u32, u32), Arc<BezPath>>>,
+    /// Families the host serves on demand (UFile's font pack).
+    pack: RwLock<pack::Pack>,
+    /// Bumped whenever font-pack families are offered or arrive ([`FontDb::generation`]).
+    generation: AtomicU64,
     #[cfg(not(target_arch = "wasm32"))]
     catalog: RwLock<Vec<CatalogEntry>>,
     /// The folders the system font scan reads (the platform's font folders for [`FontDb::global`]).
@@ -648,6 +659,8 @@ impl FontDb {
         Self {
             faces: RwLock::new(faces),
             outlines: Mutex::new(HashMap::new()),
+            pack: RwLock::new(pack::Pack::default()),
+            generation: AtomicU64::new(0),
             #[cfg(not(target_arch = "wasm32"))]
             catalog: RwLock::new(Vec::new()),
             font_dirs,
@@ -690,9 +703,11 @@ impl FontDb {
         self.catalog.read().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Family names available (loaded plus cataloged system fonts), sorted and deduplicated.
+    /// Family names available (loaded, cataloged system fonts and the families offered on demand),
+    /// sorted and deduplicated.
     pub fn families(&self) -> Vec<String> {
         let mut v: Vec<String> = self.read_faces().iter().map(|f| f.family.clone()).collect();
+        v.extend(self.offered_families());
         #[cfg(not(target_arch = "wasm32"))]
         v.extend(self.read_catalog().iter().map(|c| c.family.clone()));
         v.sort_by_key(|a| a.to_lowercase());
@@ -827,14 +842,19 @@ impl FontDb {
         if let Some(f) = self.try_family(family, style) {
             return f;
         }
-        for sub in substitutes(family) {
+        // A family the host serves on demand is fetched, and stands in until it arrives (the
+        // generation moves then); else so is the best substitute it serves, when nothing loaded
+        // ranks above it.
+        self.want(family);
+        let mut asked = self.is_offered(family);
+        let fallbacks = [FALLBACK_FAMILY, "Helvetica Neue", "Arial", "Liberation Sans", "DejaVu Sans", "Segoe UI"];
+        for sub in substitutes(family).iter().chain(fallbacks.iter()) {
             if let Some(f) = self.try_family(sub, style) {
                 return f;
             }
-        }
-        for sub in [FALLBACK_FAMILY, "Helvetica Neue", "Arial", "Liberation Sans", "DejaVu Sans", "Segoe UI"] {
-            if let Some(f) = self.try_family(sub, style) {
-                return f;
+            if !asked && self.is_offered(sub) {
+                self.want(sub);
+                asked = true;
             }
         }
         self.find(LAST_RESORT_FAMILY, "Regular")

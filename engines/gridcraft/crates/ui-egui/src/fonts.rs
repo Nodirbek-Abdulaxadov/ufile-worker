@@ -12,7 +12,8 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock, RwLock};
 
 /// A font file is skipped by the scan past this size: a catalog only needs each face's name, and a
 /// damaged or enormous file must not turn startup into a long read.
@@ -67,7 +68,6 @@ pub fn system_font_dirs() -> Vec<PathBuf> {
 }
 
 /// Weight implied by a style name (`"Bold"` → 700, `"Light"` → 300).
-#[cfg(not(target_arch = "wasm32"))]
 fn style_weight(style: &str) -> f32 {
     let s: String = style.chars().filter(|c| c.is_alphanumeric()).flat_map(|c| c.to_lowercase()).collect();
     const TABLE: &[(&str, f32)] = &[
@@ -89,14 +89,12 @@ fn style_weight(style: &str) -> f32 {
 }
 
 /// Whether a style name reads as italic or oblique.
-#[cfg(not(target_arch = "wasm32"))]
 fn style_italic(style: &str) -> bool {
     let s: String = style.chars().filter(|c| c.is_alphanumeric()).flat_map(|c| c.to_lowercase()).collect();
     s.contains("italic") || s.contains("oblique")
 }
 
 /// Every face in `data` as `(index, family, style)`. Damaged data yields nothing, never a panic.
-#[cfg(not(target_arch = "wasm32"))]
 fn file_faces(data: &[u8]) -> Vec<(u32, String, String)> {
     use skrifa::raw::FileRef;
     use skrifa::{MetadataProvider, string::StringId};
@@ -169,10 +167,13 @@ fn catalog_now() -> Option<&'static [Face]> {
 }
 
 /// Start cataloging the installed fonts on a background thread, so the first frame doesn't wait for
-/// it. A no-op on wasm and after the scan has started.
+/// it. A no-op after the scan has started; on wasm, where there are none, the empty catalog is
+/// done at once.
 pub fn start_scan() {
     static STARTED: OnceLock<()> = OnceLock::new();
     STARTED.get_or_init(|| {
+        #[cfg(target_arch = "wasm32")]
+        CATALOG.get_or_init(Vec::new);
         #[cfg(not(target_arch = "wasm32"))]
         if CATALOG.get().is_none() {
             // A failed spawn leaves the scan to the first blocking lookup.
@@ -188,16 +189,168 @@ pub fn scan_done() -> bool {
     CATALOG.get().is_some()
 }
 
+// ---------------------------------------------------------------------------------------------
+// The host's font pack (UFile): open stand-ins for the Office fonts under the Office names
+// (Liberation Sans as Arial, Carlito as Calibri…), served for fetching on demand. The web shell
+// offers the families ([`offer_families`]); the first time a workbook uses one it is fetched, and
+// when its files arrive ([`add_pack_font`]) [`generation`] moves and the workbook's fonts are
+// bound again.
+
+#[derive(Default)]
+struct Pack {
+    /// The families offered, as the host names them.
+    offered: Vec<String>,
+    /// The families asked for (lower case): each is fetched once.
+    requested: HashSet<String>,
+    fetch: Option<fn(&str)>,
+    /// The faces that arrived, with their font data.
+    faces: Vec<(Face, Arc<Vec<u8>>)>,
+}
+
+fn pack() -> &'static RwLock<Pack> {
+    static PACK: OnceLock<RwLock<Pack>> = OnceLock::new();
+    PACK.get_or_init(RwLock::default)
+}
+
+fn read_pack() -> std::sync::RwLockReadGuard<'static, Pack> {
+    pack().read().unwrap_or_else(|e| e.into_inner())
+}
+
+fn write_pack() -> std::sync::RwLockWriteGuard<'static, Pack> {
+    pack().write().unwrap_or_else(|e| e.into_inner())
+}
+
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// A counter that moves whenever font-pack families are offered or their faces arrive: the
+/// workbook's fonts are bound again (which asks for the offered ones it uses).
+pub fn generation() -> u64 {
+    GENERATION.load(Ordering::Acquire)
+}
+
+/// Offer `families` for fetching on demand: the first time a workbook uses one, `fetch` is called
+/// with its name (once per family). `fetch` only starts the download; the files come back through
+/// [`add_pack_font`].
+pub fn offer_families(families: Vec<String>, fetch: fn(&str)) {
+    let mut p = write_pack();
+    p.offered = families;
+    p.fetch = Some(fetch);
+    drop(p);
+    GENERATION.fetch_add(1, Ordering::AcqRel);
+}
+
+/// The loaded font-pack family named `name`, if any.
+fn pack_family(name: &str) -> Option<String> {
+    read_pack().faces.iter().find(|(f, _)| f.family.eq_ignore_ascii_case(name)).map(|(f, _)| f.family.clone())
+}
+
+/// Ask the host for `family` if it offers it and it hasn't been asked for.
+fn want(family: &str) {
+    let call = {
+        let mut p = write_pack();
+        let Some(name) = p.offered.iter().find(|f| f.eq_ignore_ascii_case(family)).cloned() else { return };
+        if p.faces.iter().any(|(f, _)| f.family.eq_ignore_ascii_case(&name)) || !p.requested.insert(name.to_lowercase()) {
+            return;
+        }
+        p.fetch.map(|f| (f, name))
+    };
+    if let Some((fetch, name)) = call {
+        fetch(&name);
+    }
+}
+
+/// Add a font file of the offered `family`: its faces are named `family`, whatever the file calls
+/// itself. Faces egui can't read are refused. Returns how many faces were added.
+pub fn add_pack_font(family: &str, bytes: Vec<u8>) -> Result<usize, String> {
+    let found = file_faces(&bytes);
+    if found.is_empty() {
+        return Err(format!("{family}: not a font file"));
+    }
+    let data = Arc::new(bytes);
+    let mut p = write_pack();
+    let mut added = 0;
+    for (index, _, style) in found {
+        let (weight, italic) = (style_weight(&style), style_italic(&style));
+        if !crate::theme::font_parses(&data, index)
+            || p.faces.iter().any(|(f, _)| f.family.eq_ignore_ascii_case(family) && f.weight == weight && f.italic == italic)
+        {
+            continue;
+        }
+        let path = PathBuf::from(format!("font-pack/{family} {style}"));
+        p.faces.push((Face { family: family.to_string(), path, index, weight, italic }, data.clone()));
+        added += 1;
+    }
+    drop(p);
+    if added > 0 {
+        GENERATION.fetch_add(1, Ordering::AcqRel);
+    }
+    Ok(added)
+}
+
+/// The prefix of the font-data keys [`pack_fallback`] adds.
+pub const PACK_FALLBACK: &str = "pack-fallback:";
+
+/// The loaded font-pack families' regular faces, as fallbacks for characters a chain's own fonts
+/// lack (on the web egui's fonts are the only others, and they have no `ʻ` (U+02BB) of Uzbek, for
+/// one): added to `fonts`, their keys returned, Calibri first. Asks for Calibri, Excel's default,
+/// if it hasn't been.
+pub fn pack_fallback(fonts: &mut egui::FontDefinitions) -> Vec<String> {
+    want("Calibri");
+    let p = read_pack();
+    let rank = |family: &str| ["calibri", "arial", "times new roman", "courier new"].iter().position(|f| family.eq_ignore_ascii_case(f)).unwrap_or(9);
+    let mut regular: Vec<&(Face, Arc<Vec<u8>>)> = p.faces.iter().filter(|(f, _)| !f.italic && f.weight < 600.0).collect();
+    regular.sort_by_key(|(f, _)| rank(&f.family));
+    let mut keys: Vec<String> = Vec::new();
+    for (face, data) in regular {
+        let key = format!("{PACK_FALLBACK}{}", face.family);
+        if keys.contains(&key) {
+            continue;
+        }
+        let mut fd = egui::FontData::from_owned(data.as_ref().clone());
+        fd.index = face.index;
+        fonts.font_data.insert(key.clone(), Arc::new(fd));
+        keys.push(key);
+    }
+    keys
+}
+
+/// The font file behind a face: a font-pack face's data, else the file on disk.
+fn face_bytes(face: &Face) -> Option<Vec<u8>> {
+    if let Some((_, data)) = read_pack().faces.iter().find(|(f, _)| f.path == face.path) {
+        return Some(data.as_ref().clone());
+    }
+    std::fs::read(&face.path).ok()
+}
+
+/// The Office family the host's font pack draws a font that isn't installed with: Courier New for
+/// monospaced names, Cambria or Times New Roman for serif ones, Arial for Helvetica, otherwise
+/// Calibri (Excel's long-time default).
+pub fn stand_in(name: &str) -> &'static str {
+    let lower = name.to_ascii_lowercase();
+    if lower.contains("courier") || lower.contains("mono") || lower.contains("consolas") {
+        "Courier New"
+    } else if lower.contains("cambria") || lower.contains("georgia") {
+        "Cambria"
+    } else if lower.contains("times") || lower.contains("garamond") || lower.contains("serif") && !lower.contains("sans") {
+        "Times New Roman"
+    } else if lower.contains("arial") || lower.contains("helvetica") {
+        "Arial"
+    } else {
+        "Calibri"
+    }
+}
+
 /// The faces of one installed family, regular-weight first (the order roles pick from).
 pub fn faces_of(family: &str) -> Vec<Face> {
-    let Some(cat) = catalog_now() else { return Vec::new() };
-    let mut v: Vec<Face> = cat.iter().filter(|f| f.family.eq_ignore_ascii_case(family)).cloned().collect();
+    let mut v: Vec<Face> = catalog_now().unwrap_or_default().iter().filter(|f| f.family.eq_ignore_ascii_case(family)).cloned().collect();
+    v.extend(read_pack().faces.iter().filter(|(f, _)| f.family.eq_ignore_ascii_case(family)).map(|(f, _)| f.clone()));
     v.sort_by(|a, b| a.weight.total_cmp(&b.weight).then(a.italic.cmp(&b.italic)).then(a.index.cmp(&b.index)));
     v
 }
 
 /// The subset of `names` that is installed, sorted and deduped. These are the families whose files
-/// get bound for a workbook.
+/// get bound for a workbook. A name the host's font pack serves is fetched; until it arrives, and
+/// for names nobody has, the pack's [`stand_in`] is fetched and bound in its place.
 pub fn installed_among(names: &[String]) -> Vec<String> {
     let Some(cat) = catalog_now() else { return Vec::new() };
     let mut out: Vec<String> = Vec::new();
@@ -208,9 +361,21 @@ pub fn installed_among(names: &[String]) -> Vec<String> {
         }
         if let Some(f) = cat.iter().find(|f| f.family.eq_ignore_ascii_case(wanted)) {
             out.push(f.family.clone());
+        } else if let Some(f) = pack_family(wanted) {
+            out.push(f);
+        } else {
+            want(wanted);
+            let stand_in = stand_in(wanted);
+            want(stand_in);
+            if let Some(f) = pack_family(stand_in)
+                && seen.insert(f.to_lowercase())
+            {
+                out.push(f);
+            }
         }
     }
     out.sort_by_key(|a| a.to_lowercase());
+    out.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
     out
 }
 
@@ -282,7 +447,7 @@ pub fn bind_faces(fonts: &mut egui::FontDefinitions, family: &str, faces: &[Face
             if chain.contains(&key) {
                 continue;
             }
-            let Ok(bytes) = std::fs::read(&face.path) else { continue };
+            let Some(bytes) = face_bytes(face) else { continue };
             let mut fd = egui::FontData::from_owned(bytes);
             fd.index = face.index;
             fonts.font_data.entry(key.clone()).or_insert_with(|| std::sync::Arc::new(fd));
@@ -360,6 +525,29 @@ mod tests {
         assert!(is_bound(&k));
         set_bound([]);
         assert!(!is_bound(&k));
+    }
+
+    #[test]
+    fn pack_fonts_bind_under_the_offered_name_and_stand_in_for_missing_ones() {
+        fn fetched(_: &str) {}
+        let gen0 = generation();
+        offer_families(vec!["Pack Sans".into()], fetched);
+        assert!(generation() > gen0, "offering binds the workbook's fonts again");
+        assert_eq!(add_pack_font("Pack Sans", epaint_default_fonts::UBUNTU_LIGHT.to_vec()), Ok(1));
+        assert_eq!(add_pack_font("Pack Sans", epaint_default_fonts::UBUNTU_LIGHT.to_vec()), Ok(0), "the same face once");
+        assert!(add_pack_font("Pack Sans", b"not a font".to_vec()).is_err());
+        let faces = faces_of("pack sans");
+        assert_eq!(faces.len(), 1);
+        assert_eq!(faces[0].family, "Pack Sans");
+        let mut fonts = egui::FontDefinitions::default();
+        assert_eq!(bind_faces(&mut fonts, "Pack Sans", &faces).len(), 4, "the pack's data binds like a file's");
+        let fallback = pack_fallback(&mut fonts);
+        assert!(fallback.contains(&format!("{PACK_FALLBACK}Pack Sans")), "{fallback:?}");
+        assert!(fallback.iter().all(|k| fonts.font_data.contains_key(k)));
+        assert_eq!(stand_in("Consolas"), "Courier New");
+        assert_eq!(stand_in("Times New Roman"), "Times New Roman");
+        assert_eq!(stand_in("Helvetica Neue"), "Arial");
+        assert_eq!(stand_in("Aptos Narrow"), "Calibri");
     }
 
     #[test]

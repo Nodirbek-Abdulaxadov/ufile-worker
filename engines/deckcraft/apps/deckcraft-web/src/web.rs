@@ -8,6 +8,8 @@ const PRESENTATION_EXTS: &[&str] = &["deckcraft", "pptx", "potx", "ppsx", "txt",
 const PICTURE_EXTS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff"];
 const AUDIO_EXTS: &[&str] = &["wav", "mp3", "m4a", "aac", "flac", "ogg", "opus", "aif", "aiff"];
 const VIDEO_EXTS: &[&str] = &["mp4", "m4v", "mov", "webm"];
+mod font_pack;
+
 const CANVAS_ID: &str = "deckcraft_canvas";
 const LOADING_ID: &str = "deckcraft_loading";
 
@@ -42,6 +44,8 @@ pub fn start() {
                     if let Some(rs) = &cc.wgpu_render_state {
                         log::info!("deckcraft-web {}: wgpu backend {:?}", env!("CARGO_PKG_VERSION"), rs.adapter.get_info().backend);
                     }
+                    // The host's Office font stand-ins, fetched as slides ask for them.
+                    font_pack::start(cc.egui_ctx.clone());
                     let inbox: Inbox = Inbox::default();
                     let mut services = services(inbox.clone(), cc.egui_ctx.clone());
                     if let Some(bridge) = &app_bridge {

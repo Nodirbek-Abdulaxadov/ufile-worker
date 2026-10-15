@@ -25,11 +25,13 @@ pub struct Resolved {
 /// metric-compatible come first (Carlito ↔ Calibri, Caladea ↔ Cambria, Liberation ↔ Arial /
 /// Times New Roman / Courier New), then common system fonts, then our bundled families.
 fn substitutes(family: &str) -> &'static [&'static str] {
-    const SANS: &[&str] = &["Carlito", "Helvetica Neue", "Arial", "Liberation Sans", "Noto Sans", "DejaVu Sans", "Source Sans 3"];
-    const SERIF: &[&str] = &["Caladea", "Times New Roman", "Liberation Serif", "Georgia", "Noto Serif", "DejaVu Serif", "Source Serif 4"];
+    // Calibri, Cambria, Arial and Times New Roman may be the host's metric-compatible stand-ins
+    // ([`FontDb::offer_families`]) under those names.
+    const SANS: &[&str] = &["Carlito", "Calibri", "Helvetica Neue", "Arial", "Liberation Sans", "Noto Sans", "DejaVu Sans", "Source Sans 3"];
+    const SERIF: &[&str] = &["Caladea", "Cambria", "Times New Roman", "Liberation Serif", "Georgia", "Noto Serif", "DejaVu Serif", "Source Serif 4"];
     const MONO: &[&str] = &["Courier New", "Liberation Mono", "Menlo", "Consolas", "DejaVu Sans Mono", "JetBrains Mono"];
-    const ARIAL: &[&str] = &["Liberation Sans", "Helvetica", "Helvetica Neue", "Arimo", "Source Sans 3"];
-    const TIMES: &[&str] = &["Liberation Serif", "Times", "Tinos", "Source Serif 4"];
+    const ARIAL: &[&str] = &["Liberation Sans", "Arial", "Helvetica", "Helvetica Neue", "Arimo", "Source Sans 3"];
+    const TIMES: &[&str] = &["Liberation Serif", "Times New Roman", "Times", "Tinos", "Source Serif 4"];
     // Word's symbol fonts (Symbol, Wingdings…) are proprietary: their characters are drawn as their
     // Unicode equivalents (`wordcraft_doc::symbol_fonts`) from these faces or any face that has them.
     const SYMBOL: &[&str] = &["Apple Symbols", "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols", "Noto Sans Symbols 2", "Source Sans 3"];
@@ -215,7 +217,15 @@ pub fn resolve(family: &str, bold: bool, italic: bool) -> Resolved {
         // Windows maps the charset names to the font itself: not a substitution.
         (base.to_string(), false)
     } else {
-        let s = substitutes(base).iter().find(|s| db.has_family(s)).copied().unwrap_or(crate::FALLBACK_FAMILY);
+        // A family the host serves on demand is fetched, and stands in until it arrives
+        // (the generation moves then, and this is resolved again).
+        db.want(base);
+        let subs = substitutes(base);
+        let s = subs.iter().find(|s| db.has_family(s)).copied().unwrap_or(crate::FALLBACK_FAMILY);
+        // So is the best substitute the host serves, when nothing loaded ranks above it.
+        if let Some(offered) = subs.iter().take_while(|x| **x != s).find(|x| db.is_offered(x)) {
+            db.want(offered);
+        }
         (s.to_string(), true)
     };
     let face = db.face(&fam, style_name(bold, italic));

@@ -1,6 +1,8 @@
 # Built engines (scripts/build-engines.sh); everything but the folder itself.
 /public/engines/*
 !/public/engines/.gitkeep
+# The font pack (scripts/fetch-fonts.sh).
+/public/fonts/
 # Rust build caches of the engines.
 /engines/*/target/
 # The demo file store.
