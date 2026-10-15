@@ -14,6 +14,8 @@
 //!   as PDF. The parent stores it and reports failures itself.
 //! - `gridcraft:dirty` (to the parent): `{ dirty }` whenever unsaved changes appear or go away.
 //! - `gridcraft:failed` (to the parent): `{ error }` when the app couldn't start.
+//! - `gridcraft:signout` (to the parent): Sign out was picked in the account menu, which
+//!   `?account=<name>&signout=<label>` puts in the title bar.
 //!
 //! Only the parent window on the page's own origin is heard or answered. In host mode the page
 //! starts with an empty workbook instead of a sample, and the parent guards leaving the page.
@@ -94,6 +96,11 @@ impl Bridge {
 
     pub fn post_failed(&self, error: &str) {
         self.send(&[("type", "gridcraft:failed".into()), ("error", error.into())]);
+    }
+
+    /// Sign out was picked in the account menu: the parent signs the person out.
+    pub fn post_sign_out(&self) {
+        self.send(&[("type", "gridcraft:signout".into())]);
     }
 
     /// After each frame: a workbook handed to the parent this frame counts as saved under the

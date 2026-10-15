@@ -72,6 +72,10 @@ pub fn title_bar(app: &mut SlideApp, ui: &mut Ui) {
                 .layout(egui::Layout::right_to_left(egui::Align::Center)),
         );
         right.spacing_mut().item_spacing.x = 6.0;
+        // The host page's account (its menu signs out).
+        if let Some(account) = app.account.as_mut() {
+            crate::account::button(&mut right, account, 26.0, t.accent, t.accent_text, theme::bold(11.0));
+        }
         if icon_toggle(&mut right, Icon::Search, "Search commands (⇧⌘P)", true, false).clicked() {
             app.palette = Some((String::new(), 0));
         }

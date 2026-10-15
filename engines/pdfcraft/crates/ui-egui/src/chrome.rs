@@ -66,8 +66,10 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     app.active = None;
                     app.combine_tab.focused = false;
                 }
-                // Keep the two icon buttons and their gaps outside the scrolling tabs.
-                let controls_width = 2.0 * button + 50.0 + window_controls::width(&controls.right);
+                // Keep the two icon buttons (three with the account) and their gaps outside the
+                // scrolling tabs.
+                let account_width = if app.account.is_some() { button + 8.0 } else { 0.0 };
+                let controls_width = 2.0 * button + 50.0 + account_width + window_controls::width(&controls.right);
                 // Open stays in sight after the tabs: its icon, text and padding, and the gaps around it.
                 let open_width = ui.fonts_mut(|f| f.layout_no_wrap(tl!("Open").into(), theme::medium(13.0), t.text).size().x) + 38.0 + 12.0;
                 let mut tabs_width = (ui.available_width() - controls_width - open_width).max(0.0);
@@ -217,6 +219,11 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             window_controls::buttons(ui, &controls.right);
                         });
                         ui.add_space(window_controls::SIDE_GAP - 4.0);
+                    }
+                    // The host page's account (its menu signs out).
+                    if let Some(account) = app.account.as_mut() {
+                        crate::account::button(ui, account, button, t.accent, egui::Color32::WHITE, theme::semibold(11.5));
+                        ui.add_space(4.0);
                     }
                     let (icon, label) = match app.theme_preference {
                         ThemePreference::System => ("monitor", tl!("Use system setting")),

@@ -6,6 +6,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
 
+pub mod account;
 pub mod backstage;
 mod border_preview;
 mod cell_pictures;
@@ -211,6 +212,8 @@ pub struct Perf {
 
 pub struct SheetApp {
     pub session: Session,
+    /// The account the host page signed in with: the title bar's account button.
+    pub account: Option<account::Account>,
     pub ui: UiState,
     pub views: HashMap<(u64, usize), SheetView>,
     pub editor: Option<editor::EditState>,
@@ -271,6 +274,7 @@ impl SheetApp {
     pub fn new(session: Session, services: Services) -> SheetApp {
         SheetApp {
             session,
+            account: None,
             ui: UiState::default(),
             views: HashMap::new(),
             editor: None,

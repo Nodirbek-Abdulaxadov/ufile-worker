@@ -38,6 +38,8 @@ const state = {
   mode: 'edit',
   allowEdit: true,
   author: '',
+  // The person signed in through the server (server/auth.mjs): { name, sub }, or null.
+  user: null,
   // { name, bytes, engine, source: 'local'|'url'|'host'|'host-url'|'new', saveUrl, saveMethod, saveHeaders, ackSaves }
   file: null,
   frame: null,
@@ -62,11 +64,12 @@ main().catch((e) => {
 async function main() {
   state.webgl = preferWebgl();
   state.config = await loadConfig();
+  state.user = await signedIn();
   setLanguage(pickLanguage(params.get('lang'), localStore('ufile.lang'), state.config.defaultLanguage), false);
   state.allowEdit = state.config.allowEdit !== false && params.get('allowEdit') !== '0' && params.get('allowEdit') !== 'false';
   const mode = params.get('mode') || localStore('ufile.mode') || state.config.defaultMode;
   state.mode = mode === 'view' || !state.allowEdit ? 'view' : 'edit';
-  state.author = (params.get('author') || state.config.author || '').trim().slice(0, 200);
+  state.author = (params.get('author') || state.config.author || state.user?.name || '').trim().slice(0, 200);
   if (params.get('toolbar') === '0') document.body.classList.add('no-toolbar');
   app.dataset.embedded = String(embedded);
 
@@ -109,6 +112,20 @@ async function preferWebgl() {
   } catch {
     return false;
   }
+}
+
+/** The person signed in, when the server has a sign-in (server/auth.mjs); else null. */
+async function signedIn() {
+  try {
+    const r = await fetch('auth/me', { cache: 'no-store' });
+    if (r.ok) {
+      const me = await r.json();
+      if (typeof me?.name === 'string') return me;
+    }
+  } catch {
+    // No sign-in here.
+  }
+  return null;
 }
 
 async function loadConfig() {
@@ -303,9 +320,21 @@ function onEngineMessage(frame, kind, msg) {
     case 'failed':
       frame.fail(state.t('error.engineFailed'), msg.error);
       break;
+    case 'signout':
+      signOut();
+      break;
     default:
       break;
   }
+}
+
+/** Sign out (server/auth.mjs), asking first while there are unsaved changes. */
+function signOut() {
+  if (!state.user) return;
+  if (state.dirty && !window.confirm(state.t('auth.unsaved'))) return;
+  // Leaving was just confirmed: the unsaved-changes guard has nothing more to ask.
+  state.dirty = false;
+  location.href = 'auth/logout';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -511,6 +540,11 @@ class EngineFrame {
     this.modes = false;
     const q = new URLSearchParams({ host: 'parent', mode });
     q.set('author', state.author || state.t('user.default'));
+    // Signed in (server/auth.mjs): the engine's title bar shows the account, with Sign out.
+    if (state.user) {
+      q.set('account', state.user.name || state.t('user.default'));
+      q.set('signout', state.t('auth.logout'));
+    }
     if (webgl) q.set('webgl', '');
     this.iframe = document.createElement('iframe');
     this.iframe.className = 'engine__frame';
@@ -887,6 +921,10 @@ function setupToolbar() {
 }
 
 function setupLanding() {
+  if (state.user) {
+    $('account-name').textContent = state.user.name;
+    $('account').hidden = false;
+  }
   const select = $('lang-select');
   for (const { code, name } of LANGUAGES) select.append(new Option(name, code, false, code === state.lang));
   select.value = state.lang;

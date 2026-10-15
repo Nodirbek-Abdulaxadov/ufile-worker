@@ -23,6 +23,7 @@ macro_rules! tl_ctx {
 }
 
 mod a11y_ui;
+pub mod account;
 mod actions_ui;
 mod appearance;
 pub mod canvas;
@@ -466,6 +467,8 @@ pub struct RecentFile {
 }
 
 pub struct PdfCraftApp {
+    /// The account the host page signed in with: the title bar's account button.
+    pub account: Option<account::Account>,
     pub docking: docking::Workspace,
     pub(crate) pending_panel_reveals: Vec<docking::Panel>,
     pub session: Session,
@@ -858,6 +861,7 @@ fn rgb_triple(v: &serde_json::Value) -> Option<[f64; 3]> {
 impl PdfCraftApp {
     pub fn new() -> Self {
         Self {
+            account: None,
             session: Session::new(),
             views: Vec::new(),
             closed_tabs: Vec::new(),

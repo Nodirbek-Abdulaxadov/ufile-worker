@@ -6,6 +6,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
 
+pub mod account;
 pub mod backstage;
 pub mod canvas;
 pub mod control;
@@ -178,6 +179,8 @@ pub struct Perf {
 
 pub struct SlideApp {
     pub session: Session,
+    /// The account the host page signed in with: the title bar's account button.
+    pub account: Option<account::Account>,
     pub services: Services,
     pub ui: UiState,
     pub textures: textures::Textures,
@@ -235,6 +238,7 @@ impl SlideApp {
         let audio_out = services.audio_out.take();
         SlideApp {
             session,
+            account: None,
             services,
             ui: UiState::default(),
             textures: textures::Textures::default(),

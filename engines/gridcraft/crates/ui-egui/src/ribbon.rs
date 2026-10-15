@@ -124,6 +124,11 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(8.0);
+                // The host page's account (its menu signs out).
+                if let Some(account) = app.account.as_mut() {
+                    crate::account::button(ui, account, ch, t.accent, Color32::WHITE, theme::ui_bold(11.0));
+                    ui.add_space(4.0);
+                }
                 let __k = icon_button(ui, Icon::Search, t.text_dim, "Search commands (⌘⇧Space)", vec2(28.0, ch));
                 control_keytip(app, ui, &__k, "commandSearch");
                 if __k.clicked() {

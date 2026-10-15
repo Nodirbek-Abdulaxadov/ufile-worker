@@ -18,12 +18,16 @@
 //                             from their own pages ("" by default: only the worker's own)
 //   --embed-only              UFILE_EMBED_ONLY=1  serve the worker only inside an <iframe> (the SDK's
 //                             index.html?embed=1): no landing page, no demo, no page opened in a tab
+//
+// Sign-in (environment only): UFILE_OIDC_ISSUER, UFILE_OIDC_CLIENT_ID and UFILE_PUBLIC_URL make
+// every page and file need an OpenID Connect sign-in; the rest is in server/auth.mjs.
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import { createAuth } from './auth.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 
@@ -47,6 +51,13 @@ const CORS = new Set(
     .filter(Boolean),
 );
 const EMBED_ONLY = process.argv.includes('--embed-only') || ['1', 'true'].includes(String(process.env.UFILE_EMBED_ONLY).toLowerCase());
+let AUTH;
+try {
+  AUTH = createAuth();
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -121,10 +132,12 @@ function json(res, status, body, extra) {
 
 function cacheControl(path) {
   const rel = path.slice(ROOT.length).split(sep).join('/');
+  // Behind a sign-in only the browser keeps a copy, never a shared cache.
+  const forever = `${AUTH ? 'private' : 'public'}, max-age=31536000, immutable`;
   // Trunk names the engines' files after their content: they never change.
-  if (/^\/engines\/[^/]+\/.+-[0-9a-f]{8,}[^/]*\.(js|wasm|css)$/.test(rel)) return 'public, max-age=31536000, immutable';
+  if (/^\/engines\/[^/]+\/.+-[0-9a-f]{8,}[^/]*\.(js|wasm|css)$/.test(rel)) return forever;
   // The font pack keeps each font release in a folder named after it (scripts/fetch-fonts.sh).
-  if (/^\/fonts\/[^/]+\/[^/]+\.(ttf|otf)$/.test(rel)) return 'public, max-age=31536000, immutable';
+  if (/^\/fonts\/[^/]+\/[^/]+\.(ttf|otf)$/.test(rel)) return forever;
   return 'no-cache';
 }
 
@@ -304,8 +317,13 @@ const server = createServer(async (req, res) => {
     if (process.env.UFILE_QUIET !== '1') console.log(`${req.method} ${req.url} ${res.statusCode} ${Date.now() - started}ms`);
   });
   try {
-    const { pathname } = new URL(req.url, 'http://localhost');
+    const url = new URL(req.url, 'http://localhost');
+    const { pathname } = url;
     if (pathname === '/healthz') return send(res, 200, 'ok');
+    if (AUTH) {
+      if (pathname.startsWith('/auth/')) return await AUTH.route(req, res, url);
+      if (!AUTH.user(req)) return AUTH.challenge(req, res, url);
+    }
     if (pathname === '/api/files' || pathname.startsWith('/api/files/')) {
       if (!STORAGE) return json(res, 404, { error: 'the file store is off' });
       return await api(req, res, pathname);
@@ -320,5 +338,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`UFile: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/  (site: ${ROOT}${STORAGE ? `, files: ${STORAGE}` : ''}${EMBED_ONLY ? ', embed only' : ''})`);
+  console.log(`UFile: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/  (site: ${ROOT}${STORAGE ? `, files: ${STORAGE}` : ''}${EMBED_ONLY ? ', embed only' : ''}${AUTH ? `, sign-in: ${AUTH.issuer}` : ''})`);
 });

@@ -77,6 +77,7 @@ fn main() {
                         {
                             app.comment_prefs.author = author.chars().take(200).collect();
                         }
+                        app.account = account_param();
                         bridge.listen(app.startup_inbox.clone(), cc.egui_ctx.clone());
                         app.host_save = Some(bridge.save_fn());
                         app.host_dirty = Some(bridge.dirty_fn());
@@ -120,6 +121,12 @@ impl eframe::App for Shell {
     }
 
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Sign out, picked in the account menu, is the host page's to do.
+        if let (Some(bridge), Some(account)) = (&self.bridge, self.app.account.as_mut())
+            && std::mem::take(&mut account.sign_out_requested)
+        {
+            bridge.post_sign_out();
+        }
         if let Some(view) = self.bridge.as_ref().and_then(host::Bridge::take_mode) {
             set_view_only(&mut self.app, view);
             self.view_only = view;
@@ -176,6 +183,19 @@ fn query_param(key: &str) -> Option<String> {
     web_sys::UrlSearchParams::new_with_str(&search).ok()?.get(key)
 }
 
+/// `?account=` (who signed in to the host page) and `?signout=` (its Sign out item, in the host's
+/// words): the title bar's account button. Only in host mode.
+#[cfg(target_arch = "wasm32")]
+fn account_param() -> Option<pdfcraft_ui_egui::account::Account> {
+    let clean = |s: String, max: usize| s.chars().filter(|c| !c.is_control()).take(max).collect::<String>().trim().to_string();
+    let name = clean(query_param("account")?, 200);
+    if name.is_empty() {
+        return None;
+    }
+    let sign_out = query_param("signout").map(|s| clean(s, 60)).unwrap_or_default();
+    Some(pdfcraft_ui_egui::account::Account { name, sign_out, sign_out_requested: false })
+}
+
 #[cfg(target_arch = "wasm32")]
 async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
     use eframe::wasm_bindgen::JsCast;
@@ -203,6 +223,8 @@ async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
 ///   a transferred `ArrayBuffer`. The parent stores the file (and reports its own errors).
 /// - `pdfcraft:dirty` (to the parent): `{ dirty }` whenever unsaved work appears or goes away.
 /// - `pdfcraft:failed` (to the parent): `{ error }` when the app couldn't start.
+/// - `pdfcraft:signout` (to the parent): Sign out was picked in the account menu, which
+///   `?account=<name>&signout=<label>` puts in the title bar.
 ///
 /// Only the parent window on the app's own origin is heard or answered.
 #[cfg(target_arch = "wasm32")]
@@ -259,6 +281,13 @@ mod host {
         /// The app couldn't start (no WebGL, for example): let the parent say so.
         pub fn post_failed(&self, error: &str) {
             if let Some(m) = message(&[("type", "pdfcraft:failed".into()), ("error", error.into())]) {
+                let _ = self.post(&m, None);
+            }
+        }
+
+        /// Sign out was picked in the account menu: the parent signs the person out.
+        pub fn post_sign_out(&self) {
+            if let Some(m) = message(&[("type", "pdfcraft:signout".into())]) {
                 let _ = self.post(&m, None);
             }
         }

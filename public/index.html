@@ -54,10 +54,16 @@
             <img src="assets/icon.svg" alt="" width="28" height="28">
             <span>UFile</span>
           </div>
-          <label class="lang">
-            <span class="sr-only" data-i18n="lang.label"></span>
-            <select id="lang-select"></select>
-          </label>
+          <div class="landing__tools">
+            <div class="account" id="account" hidden>
+              <span class="account__name" id="account-name"></span>
+              <a class="btn" id="btn-logout" href="auth/logout" data-i18n="auth.logout"></a>
+            </div>
+            <label class="lang">
+              <span class="sr-only" data-i18n="lang.label"></span>
+              <select id="lang-select"></select>
+            </label>
+          </div>
         </div>
 
         <div class="landing__body">

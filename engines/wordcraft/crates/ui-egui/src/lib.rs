@@ -22,6 +22,7 @@ macro_rules! tl {
 
 pub mod a11y;
 pub mod a11y_pane;
+pub mod account;
 pub mod backstage;
 pub mod canvas;
 pub mod caret_glide;
@@ -341,6 +342,8 @@ fn migrate_units(v: &mut Value) {
 /// The application.
 pub struct WordApp {
     pub session: Session,
+    /// The account the host page signed in with: the title bar's account button.
+    pub account: Option<account::Account>,
     pub ui: UiState,
     pub services: Services,
     pub printing: printing::State,
@@ -462,6 +465,7 @@ impl WordApp {
         }
         WordApp {
             session,
+            account: None,
             ui: UiState::default(),
             services,
             printing: Default::default(),

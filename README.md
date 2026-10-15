@@ -226,8 +226,33 @@ bosh sahifa, `demo.html` va brauzer tabida ochilgan har qanday sahifa 404 qaytar
 ko'milgan viewer sifatida ishlatilganda yoqing.
 
 Fayl ombori API'si: `GET /api/files`, `GET|PUT|POST|DELETE /api/files/<nom>`, `GET /healthz`.
-Bu namunaviy ombor: autentifikatsiyasi yo'q. Haqiqiy tizimda `saveUrl`'ni o'z backend'ingizga
-yo'naltiring yoki `--no-storage` bilan o'chiring.
+Bu namunaviy ombor: o'z autentifikatsiyasi yo'q (pastdagi *Kirish* yoqilsa, unga ham kirish kerak).
+Haqiqiy tizimda `saveUrl`'ni o'z backend'ingizga yo'naltiring yoki `--no-storage` bilan o'chiring.
+
+### Kirish (OpenID Connect)
+
+`UFILE_OIDC_ISSUER` berilsa, har bir sahifa, fayl va API uchun kirish kerak bo'ladi. Kirish
+Authorization Code + PKCE orqali, OIDC provayderda (masalan Musanna platformasi) bo'ladi. Sessiya
+imzolangan cookie'da saqlanadi, serverda hech narsa saqlanmaydi. Kod: `server/auth.mjs`.
+
+| Muhit o'zgaruvchisi | Ma'nosi |
+|---|---|
+| `UFILE_OIDC_ISSUER` | provayder, masalan `https://platform.musanna.uz` |
+| `UFILE_OIDC_CLIENT_ID` | UFile'ning client'i (provayderda ro'yxatdan o'tgan) |
+| `UFILE_OIDC_CLIENT_SECRET` | faqat confidential client uchun; public client PKCE bilan ishlaydi |
+| `UFILE_OIDC_SCOPES` | standart `openid profile` |
+| `UFILE_PUBLIC_URL` | foydalanuvchi ochadigan manzil, masalan `https://docs.musanna.uz`. Provayderdagi redirect URI: `<shu manzil>/auth/callback`, chiqishdan keyin: `<shu manzil>/` |
+| `UFILE_SESSION_SECRET` | cookie imzolash kaliti. Berilmasa, har ishga tushishda yangisi olinadi va qayta ishga tushganda hamma chiqib ketadi |
+| `UFILE_SESSION_HOURS` | sessiya muddati, standart `12` |
+
+- Kirmagan foydalanuvchi sahifani ochsa, provayderga yo'naltiriladi va kirgandan keyin o'sha
+  sahifaga qaytadi. Boshqa so'rovlar (fayllar, API) `401` oladi. `/healthz` ochiq.
+- `/auth/me` — kim kirgani (`{ name, sub }`), `/auth/logout` — UFile'dan va provayderdan chiqish.
+- Kirgan odamning ismi bosh sahifada "Chiqish" tugmasi bilan chiqadi. Dvigatellarning yuqori o'ng
+  burchagida ham ism bosh harflari bilan avatar paydo bo'ladi, uning menyusidan chiqish mumkin.
+  Shu ism hujjat izohlariga muallif sifatida yoziladi.
+- Cookie `SameSite=Lax`: kirish UFile alohida sahifa sifatida (yoki bitta sayt ichida) ochilganda
+  ishlaydi. Boshqa saytning iframe'ida bu cookie yuborilmaydi.
 
 ## Xavfsizlik sozlamalari (`public/config.json`)
 
@@ -321,6 +346,7 @@ asl loyihaning yangi versiyasiga qanday o'tish — `engines/README.md`'da.
 | Loyiha | O'zgarish |
 |---|---|
 | hammasi (`crates/engine`) | **Faqat o'qish** sessiyasi: `Session::read_only` (PdfCraft'da `Session::set_view_only`). Hujjatni o'zgartiradigan har bir buyruq va undo/redo rad etiladi. DeckCraft'da sichqoncha bilan sudrash ham bloklanadi. Har biri testlar bilan, va testlar himoyasiz holatda yiqilishi tekshirilgan. |
+| hammasi (`crates/ui-egui/src/account.rs`, `apps/*-web`) | **Hisob tugmasi**: `?account=<ism>&signout=<yozuv>` berilsa, sarlavha qatorining o'ng tomonida ism bosh harflari bilan avatar chiqadi. Menyusida ism va "Chiqish" bor, bosilganda `<prefix>:signout` xabari yuboriladi. Word'da avvaldan bor avatar shunga ulandi. |
 | hammasi (`apps/*-web`) | `?mode=view` parametri va iframe ko'prigi xabarlari: `<prefix>:mode` — rejimni joyida almashtirish, `<prefix>:opened` — hujjat ochildi, `ready` ichida `modes`. |
 | GridCraft (`crates/ui-egui`) | Ko'rish rejimida katak muharriri ochilmaydi (`begin_edit`), shu bilan rad etiladigan tahrir xato oynasini ham chiqarmaydi. Test: `tests/view_only.rs`. Ctrl + / Ctrl − zoom qiladi (`keymap.rs`), ko'rish rejimida ham. Test: `tests/keyboard_shortcuts.rs`. |
 | WordCraft, GridCraft, DeckCraft (shriftlar) | **Shriftlar to'plami**: `fonts.json`dagi oilalar ro'yxatga qo'shiladi va birinchi so'ralganda yuklanadi. Shrift o'z nomi bilan emas, Office nomi bilan qo'shiladi (masalan Carlito → Calibri). Kod: `crates/fonts/src/fontdb/pack.rs` (WordCraft, DeckCraft), `crates/ui-egui/src/fonts.rs` (GridCraft), `apps/*-web/src/web/font_pack.rs`. |

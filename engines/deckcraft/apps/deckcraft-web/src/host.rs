@@ -17,6 +17,8 @@
 //!   outlines) keep their own names. The parent stores the file and reports failures itself.
 //! - `deckcraft:dirty` (to the parent): `{ dirty }` whenever unsaved changes appear or go away.
 //! - `deckcraft:failed` (to the parent): `{ error }` when the app couldn't start.
+//! - `deckcraft:signout` (to the parent): Sign out was picked in the account menu, which
+//!   `?account=<name>&signout=<label>` puts in the title bar.
 //!
 //! Only the parent window on the page's own origin is heard or answered. In host mode the page
 //! starts without a presentation instead of the sample deck, and the parent guards leaving the
@@ -90,6 +92,11 @@ impl Bridge {
 
     pub fn post_failed(&self, error: &str) {
         self.send(&[("type", "deckcraft:failed".into()), ("error", error.into())]);
+    }
+
+    /// Sign out was picked in the account menu: the parent signs the person out.
+    pub fn post_sign_out(&self) {
+        self.send(&[("type", "deckcraft:signout".into())]);
     }
 
     /// `?author=`: the host's name for the user signs new comments.

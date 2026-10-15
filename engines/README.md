@@ -58,6 +58,10 @@ yig'ilgan dvigatel yoniga ham ko'chiradi.
     belgilar uchun, masalan o'zbekcha `ʻ`).
   - DeckCraft: tema shriftlari bir xil bo'lsa ham menyuda ikkalasi turadi ("(Body)" belgisi
     boshqa shriftga tushib qolmaydi).
+- **Hisob tugmasi** (to'rttalasida, `crates/ui-egui/src/account.rs`). `?account=<ism>&signout=<yozuv>`
+  berilsa, sarlavha qatorining o'ng tomonida ism bosh harflari bilan avatar chiqadi. Menyusida ism
+  va "Chiqish" bor, bosilganda `<prefix>:signout` xabari UFile'ga boradi. WordCraft'da avvaldan bor
+  avatar shunga ulandi, qolganlarida yangi qo'shildi (PdfCraft'da tablar kengligi hisobiga ham).
 
 ## Testlar
 

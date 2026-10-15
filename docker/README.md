@@ -68,6 +68,7 @@ URL parameters: `url`, `name`, `mode`, `allowEdit=0`, `saveUrl`, `saveMethod`, `
 | `UFILE_CORS` | — | Other origins allowed to call `/api/files`, comma separated |
 | `UFILE_EMBED_ONLY` | — | `1` serves UFile only inside an `<iframe>` (the SDK): no landing page, no demo, no page opened in a tab |
 | `UFILE_QUIET` | `1` | `0` logs every request |
+| `UFILE_OIDC_ISSUER` | — | An OpenID Connect provider: every page then needs a sign-in (with `UFILE_OIDC_CLIENT_ID`, `UFILE_PUBLIC_URL`, `UFILE_SESSION_SECRET`; see the README) |
 
 Which sites may drive UFile, where files may be opened from and where saves may go are set in
 `config.json`. To change them, mount your own copy:
@@ -108,7 +109,7 @@ your own backend, or start the container with `-e UFILE_STORAGE=off`.
 ## Details
 
 - **Port** `8080`, **volume** `/data`; the server runs as the unprivileged `node` user.
-- **Tags:** `latest` and versions (`1.2.0`); platform `linux/amd64`.
+- **Tags:** `latest` and versions (`1.3.0`); platform `linux/amd64`.
 - **HTTPS:** serve it over HTTPS in production. WebGPU and the clipboard need a secure context;
   without them the engines fall back to WebGL2.
 - **Downloads:** browsers fetch each engine once (4.6–9 MB compressed) and then load it from cache.

@@ -60,6 +60,8 @@ const STRINGS = {
     'error.empty': "Fayl bo'sh",
     'error.tooLarge': 'Fayl juda katta ({size} MB)',
     'lang.label': 'Til',
+    'auth.logout': 'Chiqish',
+    'auth.unsaved': "Saqlanmagan o'zgarishlar yo'qoladi. Baribir chiqasizmi?",
     'user.default': 'Foydalanuvchi',
   },
   ru: {
@@ -121,6 +123,8 @@ const STRINGS = {
     'error.empty': 'Файл пуст',
     'error.tooLarge': 'Файл слишком большой ({size} МБ)',
     'lang.label': 'Язык',
+    'auth.logout': 'Выйти',
+    'auth.unsaved': 'Несохранённые изменения будут потеряны. Всё равно выйти?',
     'user.default': 'Пользователь',
   },
   en: {
@@ -182,6 +186,8 @@ const STRINGS = {
     'error.empty': 'The file is empty',
     'error.tooLarge': 'The file is too large ({size} MB)',
     'lang.label': 'Language',
+    'auth.logout': 'Sign out',
+    'auth.unsaved': 'Unsaved changes will be lost. Sign out anyway?',
     'user.default': 'User',
   },
 };

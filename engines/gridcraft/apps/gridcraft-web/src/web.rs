@@ -74,6 +74,7 @@ pub fn start() {
                         if let Some(author) = query_param("author") {
                             crate::host::Bridge::set_author(&mut app, &author);
                         }
+                        app.account = account_param();
                         bridge.post_ready();
                     }
                     Ok(Box::new(WebShell { app, inbox, bridge: app_bridge }))
@@ -110,6 +111,18 @@ fn query_param(key: &str) -> Option<String> {
     web_sys::UrlSearchParams::new_with_str(&query()).ok()?.get(key)
 }
 
+/// `?account=` (who signed in to the host page) and `?signout=` (its Sign out item, in the host's
+/// words): the title bar's account button. Only in host mode.
+fn account_param() -> Option<gridcraft_ui_egui::account::Account> {
+    let clean = |s: String, max: usize| s.chars().filter(|c| !c.is_control()).take(max).collect::<String>().trim().to_string();
+    let name = clean(query_param("account")?, 200);
+    if name.is_empty() {
+        return None;
+    }
+    let sign_out = query_param("signout").map(|s| clean(s, 60)).unwrap_or_default();
+    Some(gridcraft_ui_egui::account::Account { name, sign_out, sign_out_requested: false })
+}
+
 struct WebShell {
     app: SheetApp,
     inbox: Inbox,
@@ -118,6 +131,12 @@ struct WebShell {
 
 impl eframe::App for WebShell {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Sign out, picked in the account menu, is the host page's to do.
+        if let (Some(bridge), Some(account)) = (&self.bridge, self.app.account.as_mut())
+            && std::mem::take(&mut account.sign_out_requested)
+        {
+            bridge.post_sign_out();
+        }
         let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
         for f in dropped {
             let inbox = self.inbox.clone();

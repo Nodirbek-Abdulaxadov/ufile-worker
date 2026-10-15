@@ -14,6 +14,8 @@
 //!   parent stores it and reports failures itself.
 //! - `wordcraft:dirty` (to the parent): `{ dirty }` whenever unsaved changes appear or go away.
 //! - `wordcraft:failed` (to the parent): `{ error }` when the app couldn't start.
+//! - `wordcraft:signout` (to the parent): Sign out was picked in the account menu, which
+//!   `?account=<name>&signout=<label>` puts in the title bar.
 //!
 //! Only the parent window on the page's own origin is heard or answered. In host mode the page
 //! starts with an empty document instead of the start screen, and the parent guards leaving the
@@ -62,6 +64,11 @@ impl Bridge {
 
     pub fn post_failed(&self, error: &str) {
         self.send(&[("type", "wordcraft:failed".into()), ("error", error.into())]);
+    }
+
+    /// Sign out was picked in the account menu: the parent signs the person out.
+    pub fn post_sign_out(&self) {
+        self.send(&[("type", "wordcraft:signout".into())]);
     }
 
     /// `?author=`: the host's name for the user signs new comments and tracked changes.

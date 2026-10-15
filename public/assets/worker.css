@@ -391,6 +391,43 @@ body.no-toolbar .bar {
   letter-spacing: -0.01em;
 }
 
+.landing__tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.account[hidden] {
+  display: none;
+}
+
+.account__name {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account .btn {
+  height: 32px;
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 520px) {
+  .account__name {
+    display: none;
+  }
+}
+
 .lang select {
   height: 32px;
   padding: 0 8px;
