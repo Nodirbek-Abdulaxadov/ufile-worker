@@ -16,6 +16,8 @@
 //                             separated CSP sources ("*" by default; "'self'" is always added)
 //   --cors ORIGINS            UFILE_CORS       origins (comma separated) that may call /api/files
 //                             from their own pages ("" by default: only the worker's own)
+//   --embed-only              UFILE_EMBED_ONLY=1  serve the worker only inside an <iframe> (the SDK's
+//                             index.html?embed=1): no landing page, no demo, no page opened in a tab
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -44,6 +46,7 @@ const CORS = new Set(
     .map((s) => s.trim())
     .filter(Boolean),
 );
+const EMBED_ONLY = process.argv.includes('--embed-only') || ['1', 'true'].includes(String(process.env.UFILE_EMBED_ONLY).toLowerCase());
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -123,6 +126,17 @@ function cacheControl(path) {
   return 'no-cache';
 }
 
+// --embed-only: a page loads only in a frame. Browsers mark a page opened in a tab with
+// Sec-Fetch-Dest: document; the worker's own page also needs the SDK's ?embed=1 (the engines'
+// pages, framed by the worker, don't), and the demo is off.
+function embeddable(req, path) {
+  if (req.headers['sec-fetch-dest'] === 'document') return false;
+  const rel = path.slice(ROOT.length).split(sep).join('/');
+  if (rel === '/demo.html') return false;
+  if (rel === '/index.html') return new URL(req.url, 'http://localhost').searchParams.get('embed') === '1';
+  return true;
+}
+
 function serveStatic(req, res, pathname) {
   let rel;
   try {
@@ -145,6 +159,7 @@ function serveStatic(req, res, pathname) {
     return send(res, 404, 'not found');
   }
   const ext = extname(path).toLowerCase();
+  if (EMBED_ONLY && ext === '.html' && !embeddable(req, path)) return send(res, 404, 'not found');
   const type = TYPES[ext] || 'application/octet-stream';
   const etag = `W/"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`;
   const headers = { 'Content-Type': type, 'Cache-Control': cacheControl(path), ETag: etag, Vary: 'Accept-Encoding' };
@@ -303,5 +318,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`UFile: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/  (site: ${ROOT}${STORAGE ? `, files: ${STORAGE}` : ''})`);
+  console.log(`UFile: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/  (site: ${ROOT}${STORAGE ? `, files: ${STORAGE}` : ''}${EMBED_ONLY ? ', embed only' : ''})`);
 });

@@ -66,6 +66,7 @@ URL parameters: `url`, `name`, `mode`, `allowEdit=0`, `saveUrl`, `saveMethod`, `
 | `UFILE_MAX_UPLOAD_MB` | `300` | Largest file the store accepts |
 | `UFILE_FRAME_ANCESTORS` | `*` | Pages allowed to embed UFile (CSP `frame-ancestors`), space separated |
 | `UFILE_CORS` | — | Other origins allowed to call `/api/files`, comma separated |
+| `UFILE_EMBED_ONLY` | — | `1` serves UFile only inside an `<iframe>` (the SDK): no landing page, no demo, no page opened in a tab |
 | `UFILE_QUIET` | `1` | `0` logs every request |
 
 Which sites may drive UFile, where files may be opened from and where saves may go are set in

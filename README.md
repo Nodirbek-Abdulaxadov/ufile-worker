@@ -215,6 +215,12 @@ beradi va ixtiyoriy fayl omborini (`/api/files`) taqdim etadi:
 | `--max-upload-mb` | `UFILE_MAX_UPLOAD_MB` | `300` |
 | `--frame-ancestors "https://a.uz https://b.uz"` | `UFILE_FRAME_ANCESTORS` | `*` |
 | `--cors "https://a.uz"` | `UFILE_CORS` | — (faqat o'z sahifalari) |
+| `--embed-only` | `UFILE_EMBED_ONLY=1` | o'chiq |
+
+`--embed-only` — UFile faqat boshqa saytning `<iframe>`'ida (SDK ochadigan `index.html?embed=1`) ishlaydi:
+bosh sahifa, `demo.html` va brauzer tabida ochilgan har qanday sahifa 404 qaytaradi (brauzer
+`Sec-Fetch-Dest: document` yuboradi). Skriptlar, dvigatellar va `/healthz` o'zgarmaydi. Ilovaga
+ko'milgan viewer sifatida ishlatilganda yoqing.
 
 Fayl ombori API'si: `GET /api/files`, `GET|PUT|POST|DELETE /api/files/<nom>`, `GET /healthz`.
 Bu namunaviy ombor: autentifikatsiyasi yo'q. Haqiqiy tizimda `saveUrl`'ni o'z backend'ingizga
@@ -258,6 +264,7 @@ Himoya qoidalari:
 **Production uchun:**
 - `allowedParentOrigins`'ga faqat o'z saytlaringizni yozing.
 - Serverni `--frame-ancestors` bilan ishga tushiring.
+- UFile faqat o'z ilovangizga ko'milgan bo'lsa, `--embed-only`'ni yoqing.
 - HTTPS ishlating: WebGPU va clipboard faqat xavfsiz kontekstda ishlaydi.
 
 ## Joylashtirish
